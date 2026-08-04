@@ -1,0 +1,346 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "gpuType": "T4",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    },
+    "accelerator": "GPU"
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/sharvesh147/Escalator-detection-system/blob/main/escalator%20D_S\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!pip install ultralytics supervision opencv-python-headless -q\n",
+        "\n",
+        "import cv2\n",
+        "import numpy as np\n",
+        "import pandas as pd\n",
+        "from ultralytics import YOLO\n",
+        "import supervision as sv\n",
+        "from datetime import datetime\n",
+        "import os\n",
+        "import matplotlib.pyplot as plt\n",
+        "from google.colab import files\n",
+        "\n",
+        "# yolov8s = \"small\" model. Noticeably more accurate than yolov8n (nano)\n",
+        "# at detecting people in crowded / distant / partially-occluded scenes,\n",
+        "# still fast enough to run on Colab's free GPU.\n",
+        "model = YOLO(\"yolov8s.pt\")\n",
+        "\n",
+        "box_annotator = sv.BoxAnnotator(thickness=2)\n",
+        "label_annotator = sv.LabelAnnotator()\n",
+        "\n",
+        "print(\"Setup done. Model loaded.\")\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "0xIGg-4_kbAr",
+        "outputId": "e533eb60-662e-460e-f471-f53b5af23434"
+      },
+      "execution_count": 2,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "\u001b[2K     \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m45.5/45.5 kB\u001b[0m \u001b[31m1.9 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[2K     \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m79.9/79.9 kB\u001b[0m \u001b[31m5.7 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m1.4/1.4 MB\u001b[0m \u001b[31m31.1 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m280.2/280.2 kB\u001b[0m \u001b[31m11.5 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m102.7/102.7 kB\u001b[0m \u001b[31m9.5 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[?25hCreating new Ultralytics Settings v0.0.7 file ✅ \n",
+            "View Ultralytics Settings with 'yolo settings' or at '/root/.config/Ultralytics/settings.json'\n",
+            "Update Settings with 'yolo settings key=value', i.e. 'yolo settings runs_dir=path/to/dir'. For help see https://docs.ultralytics.com/quickstart/#ultralytics-settings.\n",
+            "\u001b[KDownloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8s.pt to 'yolov8s.pt': 100% ━━━━━━━━━━━━ 21.5MB 269.1MB/s 0.1s\n",
+            "Setup done. Model loaded.\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "samples = {\n",
+        "    \"sample1\": \"https://videos.pexels.com/video-files/1338590/1338590-hd_1920_1080_30fps.mp4\",\n",
+        "    \"sample2\": \"https://videos.pexels.com/video-files/20666407/20666407-uhd_1440_2560_60fps.mp4\",\n",
+        "    \"sample3\": \"https://videos.pexels.com/video-files/17609830/17609830-uhd_1440_2560_60fps.mp4\",\n",
+        "}\n",
+        "\n",
+        "for name, url in samples.items():\n",
+        "    path = f\"{name}.mp4\"\n",
+        "    if not os.path.exists(path):\n",
+        "        os.system(f'wget -q -O {path} \"{url}\"')\n",
+        "    print(name, \"ready:\", os.path.exists(path))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "kUYfIshDkb9l",
+        "outputId": "a473a227-1271-484b-aa8e-da93c58f4c96"
+      },
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "sample1 ready: True\n",
+            "sample2 ready: True\n",
+            "sample3 ready: True\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "\n",
+        "def full_frame_zone(video_path, margin_ratio=0.05):\n",
+        "    \"\"\"Creates a zone covering ~90% of the frame (small margin trimmed off\n",
+        "    the edges so people just walking past outside the escalator area aren't counted).\"\"\"\n",
+        "    cap = cv2.VideoCapture(video_path)\n",
+        "    ret, frame = cap.read()\n",
+        "    h, w = frame.shape[:2]\n",
+        "    cap.release()\n",
+        "    mx, my = int(w * margin_ratio), int(h * margin_ratio)\n",
+        "    return np.array([\n",
+        "        [mx, my],\n",
+        "        [w - mx, my],\n",
+        "        [w - mx, h - my],\n",
+        "        [mx, h - my],\n",
+        "    ])\n",
+        "\n",
+        "zone_polygons = {\n",
+        "    \"sample1\": full_frame_zone(\"sample1.mp4\"),\n",
+        "    \"sample2\": full_frame_zone(\"sample2.mp4\"),\n",
+        "    \"sample3\": full_frame_zone(\"sample3.mp4\"),\n",
+        "}\n",
+        "\n",
+        "print(\"Zones set automatically for all 3 videos.\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "TeYpfQA0l-5a",
+        "outputId": "7256cc4e-16ad-4d80-99f6-13f7f7d1bbfe"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Zones set automatically for all 3 videos.\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def process_video(video_path, zone_polygon, output_prefix,\n",
+        "                   conf_threshold=0.35,\n",
+        "                   low_thresh=4, medium_thresh=7, high_thresh=10,\n",
+        "                   dwell_frames=15, smoothing_window=5):\n",
+        "    \"\"\"\n",
+        "    conf_threshold: YOLO confidence cutoff. Lower = catches more people but\n",
+        "                    more false positives. 0.35 is a good middle ground for crowds.\n",
+        "    low/medium/high_thresh: person-count bands used to classify congestion level.\n",
+        "    dwell_frames: how many consecutive frames count must stay >= high_thresh\n",
+        "                  before an ALERT event is logged (avoids one noisy frame\n",
+        "                  triggering a false alert).\n",
+        "    smoothing_window: rolling average window over recent frame counts, to stop\n",
+        "                       the on-screen number/level from flickering frame-to-frame.\n",
+        "    \"\"\"\n",
+        "    zone = sv.PolygonZone(polygon=zone_polygon)\n",
+        "    zone_annotator = sv.PolygonZoneAnnotator(zone=zone, thickness=2, color=sv.Color.RED)\n",
+        "    tracker = sv.ByteTrack()\n",
+        "\n",
+        "    cap = cv2.VideoCapture(video_path)\n",
+        "    fps = cap.get(cv2.CAP_PROP_FPS) or 25\n",
+        "    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))\n",
+        "    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))\n",
+        "\n",
+        "    out = cv2.VideoWriter(f\"{output_prefix}_annotated.mp4\",\n",
+        "                           cv2.VideoWriter_fourcc(*\"mp4v\"), fps, (w, h))\n",
+        "    snap_dir = f\"{output_prefix}_snapshots\"\n",
+        "    os.makedirs(snap_dir, exist_ok=True)\n",
+        "\n",
+        "    events = []\n",
+        "    recent_counts = []\n",
+        "    consecutive_high = 0\n",
+        "    alert_active = False\n",
+        "    frame_idx = 0\n",
+        "\n",
+        "    while True:\n",
+        "        ret, frame = cap.read()\n",
+        "        if not ret:\n",
+        "            break\n",
+        "\n",
+        "        results = model(frame, classes=[0], conf=conf_threshold, verbose=False)[0]\n",
+        "        detections = sv.Detections.from_ultralytics(results)\n",
+        "        detections = tracker.update_with_detections(detections)\n",
+        "\n",
+        "        in_zone_mask = zone.trigger(detections)\n",
+        "        raw_count = int(in_zone_mask.sum())\n",
+        "\n",
+        "        # Smooth the count so the displayed number/level doesn't flicker\n",
+        "        recent_counts.append(raw_count)\n",
+        "        if len(recent_counts) > smoothing_window:\n",
+        "            recent_counts.pop(0)\n",
+        "        smoothed_count = round(sum(recent_counts) / len(recent_counts))\n",
+        "\n",
+        "        # Congestion level classification\n",
+        "        if smoothed_count >= high_thresh:\n",
+        "            level, color = \"HIGH\", (0, 0, 255)\n",
+        "        elif smoothed_count >= medium_thresh:\n",
+        "            level, color = \"MEDIUM\", (0, 165, 255)\n",
+        "        elif smoothed_count >= low_thresh:\n",
+        "            level, color = \"LOW\", (0, 255, 255)\n",
+        "        else:\n",
+        "            level, color = \"NORMAL\", (0, 200, 0)\n",
+        "\n",
+        "        annotated = box_annotator.annotate(frame.copy(), detections[in_zone_mask])\n",
+        "        annotated = label_annotator.annotate(annotated, detections[in_zone_mask])\n",
+        "        annotated = zone_annotator.annotate(annotated)\n",
+        "\n",
+        "        cv2.putText(annotated, f\"People in zone: {smoothed_count}\", (20, 40),\n",
+        "                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)\n",
+        "        cv2.putText(annotated, f\"Congestion: {level}\", (20, 80),\n",
+        "                    cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)\n",
+        "\n",
+        "        # Alert logic — sustained HIGH congestion, not a one-frame spike\n",
+        "        if level == \"HIGH\":\n",
+        "            consecutive_high += 1\n",
+        "        else:\n",
+        "            consecutive_high = 0\n",
+        "            alert_active = False\n",
+        "\n",
+        "        if consecutive_high >= dwell_frames and not alert_active:\n",
+        "            alert_active = True\n",
+        "            timestamp = frame_idx / fps\n",
+        "            snapshot_path = f\"{snap_dir}/alert_frame{frame_idx}.jpg\"\n",
+        "            cv2.imwrite(snapshot_path, annotated)\n",
+        "            events.append({\n",
+        "                \"event_id\": len(events) + 1,\n",
+        "                \"frame\": frame_idx,\n",
+        "                \"timestamp_sec\": round(timestamp, 2),\n",
+        "                \"people_count\": smoothed_count,\n",
+        "                \"congestion_level\": level,\n",
+        "                \"snapshot_path\": snapshot_path,\n",
+        "                \"detected_at\": datetime.now().isoformat(),\n",
+        "            })\n",
+        "            cv2.putText(annotated, \"ALERT: OVERCROWDING\", (20, 120),\n",
+        "                        cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 255), 3)\n",
+        "\n",
+        "        out.write(annotated)\n",
+        "        frame_idx += 1\n",
+        "\n",
+        "    cap.release()\n",
+        "    out.release()\n",
+        "\n",
+        "    # Text report\n",
+        "    with open(f\"{output_prefix}_report.txt\", \"w\") as f:\n",
+        "        f.write(f\"CONGESTION REPORT — {output_prefix}\\n\")\n",
+        "        f.write(\"=\" * 55 + \"\\n\\n\")\n",
+        "        f.write(f\"Total frames processed: {frame_idx}\\n\")\n",
+        "        f.write(f\"Video FPS: {fps}\\n\")\n",
+        "        f.write(f\"Total congestion events (sustained HIGH): {len(events)}\\n\\n\")\n",
+        "        if not events:\n",
+        "            f.write(\"No sustained overcrowding events detected.\\n\")\n",
+        "        for e in events:\n",
+        "            f.write(f\"Event #{e['event_id']}\\n\")\n",
+        "            f.write(f\"  Frame: {e['frame']}\\n\")\n",
+        "            f.write(f\"  Timestamp: {e['timestamp_sec']} sec\\n\")\n",
+        "            f.write(f\"  People count: {e['people_count']}\\n\")\n",
+        "            f.write(f\"  Congestion level: {e['congestion_level']}\\n\")\n",
+        "            f.write(f\"  Snapshot: {e['snapshot_path']}\\n\")\n",
+        "            f.write(f\"  Logged at: {e['detected_at']}\\n\")\n",
+        "            f.write(\"-\" * 55 + \"\\n\")\n",
+        "\n",
+        "    print(f\"[{output_prefix}] done — {len(events)} congestion event(s). \"\n",
+        "          f\"Video: {output_prefix}_annotated.mp4 | Report: {output_prefix}_report.txt\")\n",
+        "    return events\n"
+      ],
+      "metadata": {
+        "id": "grQlIgT5mA6M"
+      },
+      "execution_count": 1,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "all_events = {}\n",
+        "for name in [\"sample1\", \"sample2\", \"sample3\"]:\n",
+        "    all_events[name] = process_video(\n",
+        "        video_path=f\"{name}.mp4\",\n",
+        "        zone_polygon=zone_polygons[name],\n",
+        "        output_prefix=name,\n",
+        "        conf_threshold=0.35,\n",
+        "        low_thresh=4, medium_thresh=7, high_thresh=10,\n",
+        "        dwell_frames=15,\n",
+        "    )"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "0JRWnVBumTCZ",
+        "outputId": "b10ef766-d243-4b3d-a55b-eb924375770a"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "FutureWarning: The `ByteTrack` was deprecated since v0.28.0. It will be removed in v0.30.0.\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[sample1] done — 1 congestion event(s). Video: sample1_annotated.mp4 | Report: sample1_report.txt\n",
+            "[sample2] done — 8 congestion event(s). Video: sample2_annotated.mp4 | Report: sample2_report.txt\n",
+            "[sample3] done — 10 congestion event(s). Video: sample3_annotated.mp4 | Report: sample3_report.txt\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "metadata": {
+        "id": "v0OSWF4QpRzI"
+      },
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
